@@ -65,7 +65,7 @@ har.testset <- har.testset[,comp_cols]
 
 ```{r}
 dim(har.trainset)
-
+dim(har.testset)
 ```
 
 Step B) Use correlation to remove variables with highest correlation
@@ -88,7 +88,7 @@ corMatrix <- cor(har.trainset[,1:52])
 highCor <- findCorrelation(corMatrix, cutoff=.7)
 
 har.trainset <- har.trainset[, -highCor]
-har.testset <- har.testset [,highCor]
+har.testset <- har.testset [,-highCor]
 
 dim(har.trainset)
 

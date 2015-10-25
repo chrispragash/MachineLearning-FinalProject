@@ -1,0 +1,157 @@
+---
+title: "Final Project - Machine Learning"
+author: "Christopher Pragash"
+date: "Sunday, October 25, 2015"
+output: html_document
+---
+
+```{r, echo=FALSE}
+
+library(caret)
+
+```
+
+In this exercise we will use datasets from the Human Activity Regonition ("http://groupware.les.inf.puc-rio.br/har") to develop a model to predict the manner in which the users conducted their exercise. The datasets (training - "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"" and testing - "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"") datasets provided were downloaded to the local machine and then loaded into R Studio as follows:
+
+```{r}
+har.trainset <- read.csv("E:\\Coursera\\pml-training.csv", header = T, stringsAsFactors = F)
+har.testset <- read.csv("E:\\Coursera\\pml-testing.csv", header = T, stringsAsFactors = F)
+```
+
+The approach:
+
+Step A) Clean the dataset. Evaluate which columns contain valid data, estimate which columns will be useful for the analysis and prediction of the classe variable.
+
+Step B) Use correlation function on the cleaned dataset to understand correlation of variables. Remove variables with high correlation
+
+Step C) Split the cleaned dataset into training and validation models. 
+
+Step D) Attempt to use a couple of different ML algorithms to achieve the highest accuracy. Validate the model using the validation dataset.
+
+Step E) Predict the classe variable on the test data using the best fit model developed in step d.
+
+Step A) Clean the dataset
+
+Explore the dataset to understand what columns are relevant to the analysis
+```{r}
+
+#Get the column names in the dataset
+colnames(har.trainset)
+
+#First 7 columns in the dataset explain the user, the timestamp and windows. Remove them on the test and train sets
+har.trainset <- har.trainset[,-c(1:7)]
+har.testset <- har.testset[,-c(1:7)]
+
+```
+
+Use functions to get rid of columns with no data and empty strings.
+
+```{r, echo=FALSE}
+#Use functions to get rid of columns with no data and empty strings
+
+comp <- apply(har.trainset, 2, function(x) {mean(!is.na(x))})
+comp_cols <- which(comp > 0.03)
+
+har.trainset <- har.trainset[,comp_cols]
+har.testset <- har.testset[,comp_cols]
+
+comp <- apply(har.trainset, 2, function(x) {mean(x !="")})
+comp_cols <- which (comp > 0.03)
+
+har.trainset <- har.trainset[,comp_cols]
+har.testset <- har.testset[,comp_cols]
+
+```
+
+```{r}
+dim(har.trainset)
+
+```
+
+Step B) Use correlation to remove variables with highest correlation
+
+Dimensions of the set above highlight that there are 53 columns left after cleaning the dataset of empty and null values. Determine columns with high correlation and remove them from the test and training sets.
+
+```{r, echo=FALSE}
+
+#factor the classe variable
+har.trainset$classe <- factor(har.trainset$classe)
+
+#remove the problem_id variable
+har.testset <- har.testset[,-length(har.testset)]
+```
+
+
+```{r}
+
+corMatrix <- cor(har.trainset[,1:52])
+highCor <- findCorrelation(corMatrix, cutoff=.7)
+
+har.trainset <- har.trainset[, -highCor]
+har.testset <- har.testset [,highCor]
+
+dim(har.trainset)
+
+```
+
+Step C) Split the training set and validation set
+
+```{r}
+
+set.seed(32334)
+inTrainset <- createDataPartition(har.trainset$classe, p=.7, list=F)
+trainingset <- har.trainset[inTrainset,]
+validationset <- har.trainset[-inTrainset,]
+
+# Training set
+dim(trainingset)
+
+#Validation set
+dim(validationset)
+```
+
+Step D) Apply Random Forest of ML algorithms to understand best fit
+
+```{r}
+
+control <- trainControl(method = "cv", number=5)
+har.randomForest <- train(classe ~., data=trainingset, method="rf", allowParallel = T, tcControl = control)
+
+#Print Model Stats
+har.randomForest
+
+#Print final model
+har.randomForest$finalModel
+```
+
+Model stats suggest that there is about 99% accuracy. Apply this model to the validation set
+
+```{r}
+har.validation <- predict(har.randomForest, newdata = validationset)
+
+#convert the output to a table with classe variable as columns and print
+tb <- table(har.validation, validationset$classe)
+tb
+```
+
+Step E) Apply this model on test set to get output
+
+```{r}
+har.testpredict <- predict(har.randomForest, newdata=har.testset)
+
+```
+
+```{r,echo=FALSE}
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+```
+
+Write output using the write function
+```{r}
+pml_write_files(har.testpredict)
+```
